@@ -8,7 +8,7 @@ def generate_minefield(rows, cols, mine_percentage):
             row = random.randint(0, rows - 1)
             col = random.randint(0, cols - 1)
             if minefield[row][col] != "*":
-                minefield = "*"
+                minefield[row][cols] = "*"
                 break
     return minefield
 
