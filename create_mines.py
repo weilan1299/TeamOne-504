@@ -1,4 +1,6 @@
 import random
+# Input generate file
+# Student names: Aden Abdulahi, Weilan Liang, Dereje Teshager
 def generate_minefield(rows, cols, mine_percentage):
     minefield = [["." for _ in range(cols)] for _ in range(rows)]
     num_mines = int(mine_percentage/100 * rows *cols)
