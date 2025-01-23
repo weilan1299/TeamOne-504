@@ -1,10 +1,10 @@
 # read_minefield
 # generate hint
 # write minefield
-
+# imports re = Regular expression operations to split line between numbers
 import re
 
-
+# Main project source
 class MineSweeper:
     """
         Create an output file that detects surrounding mines for a set of data.
@@ -46,7 +46,7 @@ class MineSweeper:
                        (x - 1, y + 1), (x, y - 1),
                        (x, y + 1), (x + 1, y - 1),
                        (x + 1, y), (x + 1, y + 1)]
-        num = 0
+        num = 0 # counter of adjacent mines
         for i, j in surrounding:
             if 0 <= i < len(self.__lines) and 0 <= j < len(self.__lines[0]):
                 if self.__lines[i][j] == "*":
@@ -61,7 +61,7 @@ class MineSweeper:
         for i, file in enumerate(self.__files, start=1):
             self.__lines = [list(line) for line in file.splitlines() if line.strip()]
 
-            mines_map = []
+            mines_map = [] # a map of mines
 
             for x in range(len(self.__lines)):
                 rows = []
