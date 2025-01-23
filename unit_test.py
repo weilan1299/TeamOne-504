@@ -1,4 +1,5 @@
 from team_mines import MineSweeper
+# Changed variable and method to public for unit test 
 import unittest
 
 
