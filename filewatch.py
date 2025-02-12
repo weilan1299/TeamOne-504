@@ -34,10 +34,10 @@ class FileHandler(FileSystemEventHandler):
         #on_deleted: Triggered upon the deletion of a file or directory.
         #on_moved: Triggered when a file or directory is relocated.
 class FileWatch:
-    def __init__(self, textbox, file = None):
-        self.monitoredFiles = [file]
-        self.textbox = textbox
-        self.handler = FileHandler(textbox)
+    def __init__(self, text, file = None):
+        self._monitoredFiles = [file]
+        self.__text = text
+        self.handler = FileHandler(text)
         self.observer = Observer()
 
     def add_file(self, file):
@@ -45,17 +45,17 @@ class FileWatch:
 
     def start(self):
         if not self.monitoredFiles:
-            self.textbox.insert(tk.END, 'No file to watch')
+            self.text.insert(tk.END, 'No file to watch')
             return
 
         for file in self.monitoredFiles:
             self.observer.schedule(self.handler, file, recursive=False)
         self.observer.start()
-        self.textbox.insert(tk.END, 'Starting file watch... Press Stop to stop')
+        self.text.insert(tk.END, 'Starting file watch... Press Stop to stop')
 
-    def __save_to_database(self):
+    def save_to_database(self):
         pass
-    def __exit(self):
+    def exit(self):
 #ask the user whether or not to write current contents to the database
 # if those contents have not yet been written
         pass
