@@ -7,7 +7,7 @@ import filewatch
 from customtkinter import *
 from databasemanager import DatabaseManager
 from tkinter import StringVar
-
+from observer import Observer
 from filewatch import FileWatch
 import threading
 import queue
@@ -17,26 +17,34 @@ customtkinter.set_appearance_mode("light")
 customtkinter.set_default_color_theme("blue")
 
 
-class Tkinter_GUI:
-    def __init__(self, root):
+class Tkinter_GUI(Observer):
+    def __init__(self, root, observable):
+        super().__init__(observable)
         self.root = root
         self.root.title("File System Watcher")
-        self.monitor = FileWatch()
-        self.entry_var = StringVar()
-        self.database_entry = StringVar()
         self.database = "filewatch.db"
+
+        self.need_update = None
         self.filename = StringVar()
         self.path = StringVar()
         self.event = StringVar()
         self.time = StringVar()
 
-        # Initialize variables
+        self.entry_var = StringVar()
+        self.database_entry = StringVar()
 
+
+        # Initialize variables
+        self.monitor = FileWatch(self.database)
+        self.databaseManager = self.monitor.databaseManager
+        self.databaseManager.add_observer(self)
         self.root.geometry("800x600")
+
         # Build the user interface
         self.create_menubar()
         self.create_main_frames()
         self.create_widgets()
+
 
 
 
@@ -50,6 +58,7 @@ class Tkinter_GUI:
         file_menu = Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Start Watching", command=self.start_monitoring)
+
         file_menu.add_command(label="Stop Watching", command=self.stop_monitoring)
         file_menu.add_command(label="Reset", command=self.reset)
         file_menu.add_separator()
@@ -106,6 +115,7 @@ class Tkinter_GUI:
         self.start_watch_btn = CTkButton(self.frame1, text="Start Watching", corner_radius=20,
                                          cursor="hand2", border_color="#FFCC70", border_width=3,
                                          command=self.start_monitoring)
+
         self.start_watch_btn.grid(row=0, column=0, padx=5, pady=5)
 
         self.stop_watch_btn = CTkButton(self.frame1, text="Stop Watching", corner_radius=20,
@@ -182,6 +192,7 @@ class Tkinter_GUI:
         self.events_header = CTkLabel(self.frame4, text="File System Watcher Events:")
         self.events_header.grid(row=0, column=0, padx=10, pady=(10, 0), sticky="w")
 
+
         self.file_name = CTkLabel(self.frame4, text="File Name")
         self.file_name.grid(row=1, column=0, columnspan=5, sticky="w", padx=5, pady=5)
         self.file_names = CTkLabel(self.frame4, textvariable=self.filename)
@@ -199,26 +210,27 @@ class Tkinter_GUI:
         #
         self.time_stamp = CTkLabel(self.frame4, text="Time Stamp")
         self.time_stamp.grid(row=1, column=23, columnspan=25, sticky="e", padx=120, pady=5)
-        self.timestamps = CTkLabel(self.frame4, textvariable=self.time)
+        self.timestamps = CTkLabel(self.frame4, textvariable = self.time)
         self.timestamps.grid(row=2, column=23, columnspan=25, sticky="e", padx=120, pady=5)
 
-        self.update_data_from_db()
-
-    def update_data_from_db(self):
-        conn = sqlite3.connect(self.database)
-        c = conn.cursor()
-
-        c.execute("SELECT * FROM filewatch ORDER BY timestamp DESC LIMIT 1")
-        row = c.fetchall()
-        if row:
-            filename, path, event_type, timestamp = row
-            self.filename.set(filename)
-            self.path.set(path)
-            self.event.set(event_type)
-            self.time.set(timestamp)
 
 
+    def notify(self, row):
 
+        filename, path, event_type, timestamp = row
+        # Append to the StringVars using .set() to update the text
+        current_filename = self.filename.get()
+        current_path = self.path.get()
+        current_event = self.event.get()
+        current_time = self.time.get()
+
+        # Concatenate the previous data with new values and update
+        self.filename.set(current_filename + filename + "\n")
+        self.path.set(current_path + path + "\n")
+        self.event.set(current_event + event_type + "\n")
+        self.time.set(current_time + timestamp + "\n")  # Add the timestamp with newline
+
+            # Reset the update flag
 
 
 
@@ -227,6 +239,8 @@ class Tkinter_GUI:
     # Methods for File System Watching
     def start_monitoring(self):
         """Starts the file system monitoring using watchdog."""
+
+
         path = self.entry_var.get()
         if not path:
             print("Please enter a valid path")

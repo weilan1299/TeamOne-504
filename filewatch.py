@@ -47,10 +47,10 @@ class FileHandler(FileSystemEventHandler):
         #on_deleted: Triggered upon the deletion of a file or directory.
         #on_moved: Triggered when a file or directory is relocated.
 class FileWatch:
-    def __init__(self):
+    def __init__(self, database, extension=None):
         self.__monitoredFiles = []
-        self.database = DatabaseManager()
-        self.handler = FileHandler(self.database)
+        self.databaseManager = DatabaseManager(database)
+        self.handler = FileHandler(self.databaseManager, extension)
         self.observer = Observer()
 
     @property
@@ -69,28 +69,23 @@ class FileWatch:
 
 
     def start(self):
-
-        self.database.create_table()
         if not self.__monitoredFiles:
             print('No file to watch')
             return
 
         for file in self.__monitoredFiles:
             self.observer.schedule(self.handler, file, recursive=False)
-        self.observer.start()
+            self.observer.start()
 
         print('Starting file watch... Press Stop to stop')
 
 
-        try:
-            self.observer.join()
-        except KeyboardInterrupt:
-            self.stop()
+
 
     def stop(self):
         print('Stopping file watch...')
         self.observer.stop()
-        self.database.close()
+        self.databaseManager.close()
 
 
 #
