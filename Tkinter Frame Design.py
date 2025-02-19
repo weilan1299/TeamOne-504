@@ -1,182 +1,308 @@
+import sqlite3
+import time
 import tkinter as tk
-from tkinter import ttk
-from tkinter import *
-
+from tkinter import Menu
 import customtkinter
+import filewatch
 from customtkinter import *
-from customtkinter import CTkComboBox
+from databasemanager import DatabaseManager
+from tkinter import StringVar
+from observer import Observer
+from filewatch import FileWatch
+import threading
+import queue
 
-
-
+# Set appearance mode and default theme
 customtkinter.set_appearance_mode("light")
 customtkinter.set_default_color_theme("blue")
 
-root = CTk()
-root.title("File System Watcher")
-root.geometry("800x600")
 
-menubar = Menu(root)
-root.config(menu=menubar)
+class Tkinter_GUI(Observer):
+    def __init__(self, root):
+        
+        self.root = root
+        self.root.title("File System Watcher")
+        self.database = "filewatch.db"
 
-#file menu
-fileMenu = Menu(menubar, tearoff=0)
-menubar.add_cascade(label="File", menu=fileMenu)
-fileMenu.add_command(label="Start Watching")
-fileMenu.add_command(label="Stop Watching")
-fileMenu.add_command(label="Reset")
-fileMenu.add_separator()
-fileMenu.add_command(label="Exit", command=quit)
+        self.need_update = None
+        self.filename = StringVar()
+        self.path = StringVar()
+        self.event = StringVar()
+        self.time = StringVar()
 
-#edit menu
-editMenu = Menu(menubar, tearoff=0)
-menubar.add_cascade(label="Edit", menu=editMenu)
-editMenu.add_command(label="Browse for directory to watch")
+        self.entry_var = StringVar()
+        self.database_entry = StringVar()
 
-#Database menu
-dbMenu = Menu(menubar, tearoff=0)
-menubar.add_cascade(label="Database", menu=dbMenu)
-dbMenu.add_command(label="Write")
-dbMenu.add_command(label="Clear database")
-dbMenu.add_command(label="Delete database")
-dbMenu.add_command(label="Change database")
-dbMenu.add_separator()
-dbMenu.add_command(label="Query")
 
-#Help
-HelpMenu = Menu(menubar, tearoff=0)
-menubar.add_cascade(label="Help", menu=HelpMenu)
-HelpMenu.add_command(label="About")
-HelpMenu.add_command(label="Usage Help")
-HelpMenu.add_command(label="Shortcut Keys")
+        # Initialize variables
+        self.monitor = FileWatch(self.database)
+        self.databaseManager = self.monitor.databaseManager
+        self.databaseManager.add_observer(self)
+        self.root.geometry("800x600")
+
+        # Build the user interface
+        self.create_menubar()
+        self.create_main_frames()
+        self.create_widgets()
 
 
 
 
+    def create_menubar(self):
 
-frame = Frame(root)
-frame.pack(fill="both", expand=True)
-#
-# #creating the first frame
-frame1 = Frame(frame, borderwidth=0, highlightthickness=10, relief="flat")
-frame1.grid(row=0, column=0, padx=20, pady=20, sticky='w')
-#
-StW_button = CTkButton(master=frame1, text="Start Watching", corner_radius=20, width=10, cursor="hand2", border_color="#FFCC70", border_width=3)
+        #Creates the application menu bar.
+        self.menubar = Menu(self.root)
+        self.root.config(menu=self.menubar)
 
-StW_button.grid(row=0, column=0, sticky='w', padx=0, pady=0)
+        # File Menu
+        file_menu = Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Start Watching", command=self.start_monitoring)
 
-#
-stop_button = CTkButton(frame1, text="Stop Watching", corner_radius=20, width=10, cursor="hand2",border_color="#FFCC70", border_width=3)
-stop_button.grid(row=0, column=1, sticky='w', padx=0, pady=0)
-#
-reset = CTkButton(frame1, text="Reset", corner_radius=20, width=10, cursor="hand2", border_color="#FFCC70", border_width=3)
-reset.grid(row=0, column=2)
+        file_menu.add_command(label="Stop Watching", command=self.stop_monitoring)
+        file_menu.add_command(label="Reset", command=self.reset)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.root.quit)
 
-for widget in frame1.winfo_children():
-    widget.grid_configure(padx=5, pady=5)
+        # Edit Menu
+        edit_menu = Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Edit", menu=edit_menu)
+        edit_menu.add_command(label="Browse for directory to watch", command=self.open_directory)
+
+        # Database Menu
+        db_menu = Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Database", menu=db_menu)
+        db_menu.add_command(label="Write", command=self.db_write)
+        db_menu.add_command(label="Clear database", command=self.db_clear)
+        db_menu.add_command(label="Delete database", command=self.db_delete)
+        db_menu.add_command(label="Change database", command=self.db_change)
+        db_menu.add_separator()
+        db_menu.add_command(label="Query", command=self.db_query)
+
+        # Help Menu
+        help_menu = Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="About", command=self.show_about)
+        help_menu.add_command(label="Usage Help", command=self.show_usage)
+        help_menu.add_command(label="Shortcut Keys", command=self.show_shortcuts)
+
+    def create_main_frames(self):
+        """Creates the main container and subframes."""
+        # Main container frame
+        self.main_frame = CTkFrame(self.root)
+        self.main_frame.pack(fill="both", expand=True)
+
+        # Frame 1: Controls (Start, Stop, Reset)
+        self.frame1 = CTkFrame(self.main_frame)
+        self.frame1.grid(row=0, column=0, padx=20, pady=20, sticky="w")
+
+        # Frame 2: Directory input and browse
+        self.frame2 = CTkFrame(self.main_frame)
+        self.frame2.grid(row=1, column=0, padx=20, pady=20, sticky="w")
+
+        # Frame 3: Database settings
+        self.frame3 = CTkFrame(self.main_frame)
+        self.frame3.grid(row=2, column=0, padx=20, pady=20, sticky="w")
+
+        # Frame 4: Scrollable display for events (log output)
+        self.frame4 = CTkScrollableFrame(self.main_frame, orientation="vertical", border_color="#FFCC70",
+                                         border_width=3)
+        self.frame4.grid(row=3, column=0, padx=20, pady=20, sticky="news")
+
+    def create_widgets(self):
+        """Creates and places all widgets in the appropriate frames."""
+        # --- Frame 1 Widgets: Control Buttons ---
+        self.start_watch_btn = CTkButton(self.frame1, text="Start Watching", corner_radius=20,
+                                         cursor="hand2", border_color="#FFCC70", border_width=3,
+                                         command=self.start_monitoring)
+
+        self.start_watch_btn.grid(row=0, column=0, padx=5, pady=5)
+
+        self.stop_watch_btn = CTkButton(self.frame1, text="Stop Watching", corner_radius=20,
+                                        cursor="hand2", border_color="#FFCC70", border_width=3,
+                                        command=self.stop_monitoring)
+        self.stop_watch_btn.grid(row=0, column=1, padx=5, pady=5)
+
+        self.reset_btn = CTkButton(self.frame1, text="Reset", corner_radius=20,
+                                   cursor="hand2", border_color="#FFCC70", border_width=3, command=self.reset)
+        self.reset_btn.grid(row=0, column=2, padx=5, pady=5)
+
+        # --- Frame 2 Widgets: Directory input and Browse ---
+        self.path_label = CTkLabel(self.frame2, text="Directory to watch:")
+        self.path_label.grid(row=0, column=0, sticky="w", padx=10, pady=5)
+
+        self.path_entry = CTkEntry(self.frame2, width=300, placeholder_text="Insert the path to directory",
+                                   textvariable=self.entry_var)
+        self.path_entry.grid(row=1, column=0, columnspan=8, sticky="w", padx=10, pady=5)
+
+        self.start_btn = CTkButton(self.frame2, text="Start", command=self.start_monitoring)
+        self.start_btn.grid(row=2, column=0, sticky="w", padx=10, pady=5)
+
+        self.stop_btn = CTkButton(self.frame2, text="Stop", command=self.stop_monitoring)
+        self.stop_btn.grid(row=2, column=1, sticky="w", padx=10, pady=5)
+
+        self.browse_btn = CTkButton(self.frame2, text="Browse", command=self.open_directory)
+        self.browse_btn.grid(row=2, column=2, padx=10, pady=5)
+
+        self.ext_label = CTkLabel(self.frame2, text="Extension:")
+        self.ext_label.grid(row=0, column=9, sticky="w", padx=10, pady=5)
+
+        self.ext_combo = CTkComboBox(self.frame2, values=["", ".txt", ".py", ".exe"])
+        self.ext_combo.grid(row=1, column=9, padx=10, pady=5)
+
+        self.watch_checkbox = CTkCheckBox(self.frame2, text="Watch directories?")
+        self.watch_checkbox.grid(row=2, column=9, padx=10, pady=5)
+
+        self.info_label = CTkLabel(self.frame2, text="Leave blank for All files")
+        self.info_label.grid(row=1, column=10, columnspan=2, sticky="w", padx=10, pady=5)
+
+        # --- Frame 3 Widgets: Database Settings ---
+        self.db_label = CTkLabel(self.frame3, text="Database path:")
+        self.db_label.grid(row=0, column=0, sticky="w", padx=10, pady=5)
+
+        self.db_entry = CTkEntry(self.frame3, width=300, placeholder_text="Database path",
+                                 textvariable=self.database_entry)
+        self.db_entry.grid(row=1, column=0, columnspan=8, sticky="w", padx=10, pady=5)
+
+        self.write_btn = CTkButton(self.frame3, text="Write", command=self.db_write)
+        self.write_btn.grid(row=2, column=0, sticky="w", padx=10, pady=5)
+
+        self.clear_btn = CTkButton(self.frame3, text="Clear DB", command=self.db_clear)
+        self.clear_btn.grid(row=2, column=1, sticky="w", padx=10, pady=5)
+
+        self.db_browse_btn = CTkButton(self.frame3, text="Browse", command=self.database_path)
+        self.db_browse_btn.grid(row=2, column=2, padx=10, pady=5)
+
+        self.db_ext_label = CTkLabel(self.frame3, text="Extension:")
+        self.db_ext_label.grid(row=0, column=9, sticky="w", padx=10, pady=5)
+
+        self.db_ext_combo = CTkComboBox(self.frame3, values=["", "Option 1", "Option 2", "Option 3"])
+        self.db_ext_combo.grid(row=1, column=9, padx=10, pady=5)
+
+        self.event_type_label = CTkLabel(self.frame3, text="Event Type:")
+        self.event_type_label.grid(row=0, column=10, sticky="w", padx=10, pady=5)
+
+        self.event_type_combo = CTkComboBox(self.frame3, values=["", "1", "2", "3"])
+        self.event_type_combo.grid(row=1, column=10, sticky="w", padx=10, pady=5)
+
+        self.query_btn = CTkButton(self.frame3, text="Query", command=self.db_query)
+        self.query_btn.grid(row=2, column=10, padx=10, pady=5)
+
+        # --- Frame 4 Widgets: Scrollable Event Display ---
+        self.events_header = CTkLabel(self.frame4, text="File System Watcher Events:")
+        self.events_header.grid(row=0, column=0, padx=10, pady=(10, 0), sticky="w")
 
 
-# creating the second frame for path input
-def openFile():
-    filepath = filedialog.askdirectory()
-    entry_var.set(filepath)
+        self.file_name = CTkLabel(self.frame4, text="File Name")
+        self.file_name.grid(row=1, column=0, columnspan=5, sticky="w", padx=5, pady=5)
+        self.file_names = CTkLabel(self.frame4, textvariable=self.filename)
+        self.file_names.grid(row=2,column = 0, columnspan= 5, sticky="w", padx=5, pady=5)
+
+        self.path_event = CTkLabel(self.frame4, text="Path")
+        self.path_event.grid(row=1, column=6, columnspan=17, sticky="w", padx=5, pady=5)
+        self.paths = CTkLabel(self.frame4, textvariable=self.path)
+        self.paths.grid(row=2, column=6, columnspan=17, sticky="w", padx=5, pady=5)
+
+        self.event_frame4 = CTkLabel(self.frame4, text="Event Type")
+        self.event_frame4.grid(row=1, column=18, columnspan=22, sticky="w", padx=40, pady=5)
+        self.event_type = CTkLabel(self.frame4, textvariable=self.event)
+        self.event_type.grid(row=2, column=18, columnspan=22, sticky="w", padx=40, pady=5)
+        #
+        self.time_stamp = CTkLabel(self.frame4, text="Time Stamp")
+        self.time_stamp.grid(row=1, column=23, columnspan=25, sticky="e", padx=120, pady=5)
+        self.timestamps = CTkLabel(self.frame4, textvariable = self.time)
+        self.timestamps.grid(row=2, column=23, columnspan=25, sticky="e", padx=120, pady=5)
+
+
+
+    def notify(self, row):
+
+        filename, path, event_type, timestamp = row
+        # Append to the StringVars using .set() to update the text
+        current_filename = self.filename.get()
+        current_path = self.path.get()
+        current_event = self.event.get()
+        current_time = self.time.get()
+
+        # Concatenate the previous data with new values and update
+        self.filename.set(current_filename + filename + "\n")
+        self.path.set(current_path + path + "\n")
+        self.event.set(current_event + event_type + "\n")
+        self.time.set(current_time + timestamp + "\n")  # Add the timestamp with newline
+
+            # Reset the update flag
 
 
 
 
-frame2 = Frame(frame, bd=5, relief="solid", borderwidth=0)
-frame2.grid(row=1, column=0, sticky="news", padx=0, pady=0)
+
+    # Methods for File System Watching
+    def start_monitoring(self):
+        """Starts the file system monitoring using watchdog."""
+
+
+        path = self.entry_var.get()
+        if not path:
+            print("Please enter a valid path")
+            return
+        self.monitor.monitoredFiles=path
+        self.monitor.start()
+
+    def stop_monitoring(self):
+        """Stops the file system monitoring if it is running."""
+
+        self.monitor.stop()
 
 
 
-path_txt = Label(frame2, text="Directory to watch:")
-entry_var = StringVar()
-path_entry = CTkEntry(master=frame2, width=200, placeholder_text="Insert the path to directory", textvariable=entry_var)
-path_txt.grid(row=0, column=0, sticky="w")
-path_entry.grid(row=1, column=0, columnspan=8, sticky="w")
+    def reset(self):
+        """Resets the directory and database entry fields."""
+        pass
+
+    def open_directory(self):
+        """Opens a directory selection dialog and sets the selected path."""
+        filepath = filedialog.askdirectory()
+        if filepath:
+            self.entry_var.set(filepath)
 
 
-start_button = Button(frame2, text="Start",bg="#28393a", fg="white", cursor="hand2", activebackground="#badee2", activeforeground="black")
-stop_button = Button(frame2, text="Stop",bg="#28393a", fg="white", cursor="hand2", activebackground="#badee2", activeforeground="black")
-browse_button = Button(frame2, text="Browse",bg="#28393a", fg="white", cursor="hand2", activebackground="#badee2", activeforeground="black",
-                       command=openFile)
+    # Methods for Database Operations (Stubs)
 
-start_button.grid(row=2, column=0, sticky="w")
-stop_button.grid(row=2, column=0)
-browse_button.grid(row=2, column=2)
+    def database_path(self):
+        """Opens a directory selection dialog for the database path."""
+        file_path = filedialog.askdirectory()
+        if file_path:
+            self.database_entry.set(file_path)
 
+    def db_write(self):
+        print("Database write operation triggered.")
 
-extension = Label(frame2, text="Extension:")
-extension_combo = CTkComboBox(master=frame2, values=["", ".txt", ".py", ".exe"])
-check_box = CTkCheckBox(master=frame2, text="Watch directories?")
-extension.grid(row=0, column=9, sticky="w")
-extension_combo.grid(row=1, column=9)
-check_box.grid(row=2, column=9)
+    def db_clear(self):
+        print("Database clear operation triggered.")
 
-info_txt= Label(frame2, text="Leave blank for All files")
-info_txt.grid(row=1, column=10, columnspan=2, sticky="w")
+    def db_delete(self):
+        print("Database delete operation triggered.")
 
+    def db_change(self):
+        print("Database change operation triggered.")
 
-
-for widget in frame2.winfo_children():
-    widget.grid_configure(padx=40, pady=5)
-
-#creating the third frame
-def database_path():
-    file_path = filedialog.askdirectory()
-    database_entry.set(file_path)
+    def db_query(self):
+        print("Database query operation triggered.")
 
 
-frame3 =Frame(frame, bd=5, relief="solid", borderwidth=0)
-frame3.grid(row=2, column=0, sticky="news", padx=0, pady=0)
+    # Methods for Help Menu (Stubs)
+    def show_about(self):
+        print("Show about information.")
 
-db_txt = Label(frame3, text="Database path:")
-database_entry = StringVar()
-db_entry = CTkEntry(frame3, width=200, placeholder_text="Database path", textvariable=database_entry)
-db_txt.grid(row=0, column=0, sticky="w")
-db_entry.grid(row=1, column=0,columnspan=8, sticky="w")
+    def show_usage(self):
+        print("Show usage help.")
 
-write_button =Button(frame3, text="Write", bg="#28393a", fg="white", cursor="hand2", activebackground="#badee2", activeforeground="black")
-clear_button =Button(frame3, text="Clear DB", bg="#28393a", fg="white", cursor="hand2", activebackground="#badee2", activeforeground="black", width=6)
-db_browse_button = Button(frame3, text="Browse", bg="#28393a", fg="white", cursor="hand2", activebackground="#badee2", activeforeground="black",
-                          command=database_path)
-write_button.grid(row=2, column=0, sticky="w")
-clear_button.grid(row=2, column=0,  sticky="e")
-db_browse_button.grid(row=2, column=2)
-
-db_extension = Label(frame3, text="Extension:")
-extension_combo = CTkComboBox(master=frame3, values=["", "Option 1", "Option 2", "Option 3"])
-db_extension.grid(row=0, column=9, sticky="w")
-extension_combo.grid(row=1, column=9)
-
-event_type = Label(frame3, text="Event Type:")
-event_type_combo = CTkComboBox(master=frame3, values=["", "1", "2", "3"])
-query_button = Button(frame3, text="Query", bg="#28393a", fg="white", cursor="hand2", activebackground="#badee2", activeforeground="black")
-event_type.grid(row=0, column=10, sticky="w")
-event_type_combo.grid(row=1, column=10, sticky="w")
-query_button.grid(row=2, column=10)
-
-for widget in frame3.winfo_children():
-    widget.grid_configure(padx=40, pady=5)
-
-#forth frame
-
-frame4 = CTkScrollableFrame(master=frame, orientation="vertical", border_color="#FFCC70", border_width=3)
-frame4.grid(row=3, column=0, sticky="news", padx=20, pady=20)
-txt_file = Label(frame4, text="File System Watcher Events:")
-txt_file.grid(row=0, column=0, sticky="w")
-
-file_name= Label(frame4, text="File Name")
-file_name.grid(row=1, column=0, sticky="w", padx=40, pady=5)
-
-path_event=Label(frame4, text="Path")
-path_event.grid(row=1, column=1,columnspan=8 ,sticky="w", padx=0, pady=5)
-
-event_frame4= Label(frame4, text="Event Type")
-event_frame4.grid(row=1, column=9, columnspan=2,sticky="e", padx=100, pady=5)
-
-time_stamp= Label(frame4, text="Time Stamp")
-time_stamp.grid(row=1, column=12,columnspan=2,sticky="e", padx=0, pady=5)
+    def show_shortcuts(self):
+        print("Show shortcut keys.")
 
 
-root.mainloop()
+if __name__ == "__main__":
+    root = CTk()
+    app = Tkinter_GUI(root)
+    root.mainloop()
 
