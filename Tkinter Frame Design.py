@@ -9,20 +9,25 @@ from databasemanager import DatabaseManager
 from tkinter import StringVar
 from observer import Observer
 from filewatch import FileWatch
+from observer import Observable
+
 import threading
 import queue
 
 # Set appearance mode and default theme
+# keyboard shortcut
 customtkinter.set_appearance_mode("light")
 customtkinter.set_default_color_theme("blue")
 
 
 class Tkinter_GUI(Observer):
-    def __init__(self, root):
-        
+    def __init__(self, root, databaseManager):
+
+
+        super().__init__(databaseManager)
         self.root = root
         self.root.title("File System Watcher")
-        self.database = "filewatch.db"
+
 
         self.need_update = None
         self.filename = StringVar()
@@ -32,12 +37,11 @@ class Tkinter_GUI(Observer):
 
         self.entry_var = StringVar()
         self.database_entry = StringVar()
-
+        self.database = 'filewatch.db'
 
         # Initialize variables
         self.monitor = FileWatch(self.database)
         self.databaseManager = self.monitor.databaseManager
-        self.databaseManager.add_observer(self)
         self.root.geometry("800x600")
 
         # Build the user interface
@@ -248,6 +252,8 @@ class Tkinter_GUI(Observer):
         self.monitor.monitoredFiles=path
         self.monitor.start()
 
+        #watch directory check or not, to decided to watch subdirectory
+
     def stop_monitoring(self):
         """Stops the file system monitoring if it is running."""
 
@@ -257,6 +263,7 @@ class Tkinter_GUI(Observer):
 
     def reset(self):
         """Resets the directory and database entry fields."""
+        """empty database, empty all entries."""
         pass
 
     def open_directory(self):
@@ -303,6 +310,9 @@ class Tkinter_GUI(Observer):
 
 if __name__ == "__main__":
     root = CTk()
-    app = Tkinter_GUI(root)
+
+    monitor = FileWatch()
+    databaseManager =monitor.databaseManager
+    app = Tkinter_GUI(root, databaseManager)
     root.mainloop()
 
