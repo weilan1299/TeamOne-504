@@ -1,10 +1,3 @@
-#On program exit, ask the user whether or not to write current contents to the database if those
-#contents have not yet been written
-#one button should allow the program to start monitoring files, one to stop
-#one button should write the current list of monitored files to the database
-#a listbox/textbox/combo-box to display information about files that are being watched
-#something to allow the user to choose which type of file extension to watch (you should provide a basic
-# list of extensions, but also allow the user to specify one)
 from databasemanager import DatabaseManager
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -23,19 +16,19 @@ class FileHandler(FileSystemEventHandler):
         if event.is_directory: return None
         self.__filename = os.path.basename(event.src_path)
         self.__filepath = os.path.dirname(event.src_path)
-        self.log_event('modified')
+        self.log_event('Modified')
 
     def on_created(self, event):
         if event.is_directory: return None
         self.__filename = os.path.basename(event.src_path)
         self.__filepath = os.path.dirname(event.src_path)
-        self.log_event('created')
+        self.log_event('Created')
 
     def on_deleted(self, event):
         if event.is_directory: return None
         self.__filename = os.path.basename(event.src_path)
         self.__filepath = os.path.dirname(event.src_path)
-        self.log_event('deleted')
+        self.log_event('Deleted')
 
     def log_event(self, event_type):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -96,5 +89,4 @@ class FileWatch:
 # watch.monitoredFiles = "C:/Python/503"
 #
 # watch.start()
-
 

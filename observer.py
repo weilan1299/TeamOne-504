@@ -32,8 +32,8 @@ class Observable:
 
 
 class Observer(ABC):
-    def __init__(self, observable):
-        observable.add_observer(self)
+    def __init__(self, observer):
+        observer.add_observer(self)
 
     @abstractmethod
     def notify(self, row):
