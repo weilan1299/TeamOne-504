@@ -78,8 +78,7 @@ class Tkinter_GUI(Observer):
         self.menubar.add_cascade(label="Database", menu=db_menu)
         db_menu.add_command(label="Write", command=self.db_write)
         db_menu.add_command(label="Clear database", command=self.db_clear)
-        db_menu.add_command(label="Delete database", command=self.db_delete)
-        db_menu.add_command(label="Change database", command=self.db_change)
+
         db_menu.add_separator()
         db_menu.add_command(label="Query", command=self.query_window)
 
@@ -261,6 +260,7 @@ class Tkinter_GUI(Observer):
         self.entry_var.set("")
         self.database_entry.set("")
 
+
     def open_directory(self):
         """Opens a directory selection dialog and sets the selected path."""
         filepath = filedialog.askdirectory()
@@ -292,12 +292,11 @@ class Tkinter_GUI(Observer):
     def db_clear(self):
         print("Database clear operation triggered.")
         self.databaseManager.delete_record()
+        self.filename.set("")
+        self.path.set("")
+        self.event.set("")
+        self.time.set("")
 
-    def db_delete(self):
-        print("Database delete operation triggered.")
-
-    def db_change(self):
-        print("Database change operation triggered.")
 
     def query_window(self):
         print("Database query operation triggered.")
