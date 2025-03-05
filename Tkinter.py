@@ -244,6 +244,8 @@ class Tkinter_GUI(Observer):
         self.monitor.monitoredFiles = path
         self.monitor.start()
 
+        # watch directory check or not, to decided to watch subdirectory
+
     def stop_monitoring(self):
         """Stops the file system monitoring if it is running."""
 
@@ -251,7 +253,13 @@ class Tkinter_GUI(Observer):
 
     def reset(self):
         """Resets the directory and database entry fields."""
-        pass
+        """empty database, empty all entries."""
+        self.filename.set("")
+        self.path.set("")
+        self.event.set("")
+        self.time.set("")
+        self.entry_var.set("")
+        self.database_entry.set("")
 
     def open_directory(self):
         """Opens a directory selection dialog and sets the selected path."""
@@ -348,13 +356,79 @@ class Tkinter_GUI(Observer):
 
     # Methods for Help Menu (Stubs)
     def show_about(self):
-        print("Show about information.")
+        about_message = """This File System Watcher application is version 1.0.
+            Authors: Weilan Liang
+                     Dereje Teshager
+                     Aden Abdulahi
+            This application allows users to monitor targeted file systems, like directory
+            folder, or single file in real-time. You can monitor and watch directories
+            added, new files created, deleted files, or modified files.
+        """
+        print(about_message)
 
     def show_usage(self):
-        print("Show usage help.")
+        usage_message = """
+        Usage Guide: To use this File System Watcher application, your desktop computer, 
+                laptop, or other device should operates latest versions of windows, mac, or Linux
+                etc. The File System Watcher application, was built using python 3.12, thus your device should be 
+                able to operate this python version.
+
+        A) Top Left Corner: The window has four small buttons, named as "File", "Edit", 
+            "Database", and "Help".
+            1. File: Clicking this button, will allow user/you to see small dropdown button, consisting 
+                "Start Watching", "Stop Watching", "Rest", and "Exit"
+            2. Edit: Clicking this button will allow user/you to browse and select a directory, or target file that 
+                you want or plan to be watched accordingly.
+            3. Database: Clicking this button will allow user/you to see small dropdown button, consisting "Write", 
+                "Clear database", "Delete database", "Change database", and "Query".
+            4. Help: Clicking this button will allow the user/you to access small dropdown button, consisting of 
+                the "About", "Usage Help", and "Shortcut Keys".
+        B) Where to watch: To determine which directory, or file to watch do your selection of targets accordingly:
+
+            1. To start watching a directory/ies, enter the directory path either clicking the "Edit" button at the top
+                left corner or the "Browse" button under the directory to watch, then proceed browsing and selecting 
+                your target directory, or file. Specify your target using the "Extension" button by choosing
+                either a file to be ".txt", ".py", or ".exe". Or leave the "Extension" button blank if you prefer to
+                watch and monitor all directories and click the "Watch directories" box found on the right of "Browse"
+                button and bellow the "Extension" dropdown button.
+            2. Then click "Start Watching" or "Start" buttons on the display or by dropping down the "File" button on
+                the top-left corner, from this click the "Start Watching" button.
+            3. You can stop monitoring by clicking "Stop Watching" or "Stop" button, Or click "File" button on the
+                top-left corner, then from this click "Stop Watching" button.
+                the "Stop Watching" button.
+            4. Change Target Directory: To change the directory the user/you want to watch, click the "Reset" button.
+                This will allow the user to clear any directory/ies he/she/it selected and choose another directory.
+        C) Database Management: The user have the following options for data management.
+            1. Click the "Browse" button under the Database path, then select where to store the output/result of 
+                the files or directory/ies the File Watcher System watched.
+            2. Click the "Write" button either bellow the Database path or from the "Database" on the top-left corner.
+                This will allow the user to write the data to a specified file or directory/ies.
+            3. Click the "Clear DB" or "Clear database" buttons to clear the output/result of the watched files before 
+                the result is stored to an specified file or directory/ies.
+            4. Click the "Delete database" under the "Database" button to delete stored output/result data.
+            5. Click the "Change database" under the "Database" button to modify stored output/result data.
+            6. Click the "Query" button under the "Database" button or the "Query" button to query stored 
+                output/result of any database. A user can specify the type of query by selecting the drop-down options 
+                under the Extension indicator and drop-down options under the Event Type and above the "Query" button.
+            7. File Watcher System Events will appear the last box of the window and will have a File Name, Path, 
+                Event Type, and Time Stamp in real-time occorance.
+        """
+        print(usage_message)
 
     def show_shortcuts(self):
-        print("Show shortcut keys.")
+        # Shortcut keys message popup
+        shortcuts_message = """
+           Keyboard Shortcuts:
+
+           - Ctrl + S: Start Watching
+           - Ctrl + Q: Stop Watching
+           - Ctrl + R: Reset
+           - Ctrl + B: Browse Directory
+
+           These shortcuts help you navigate and use the app quickly.
+           """
+        messagebox.showinfo("Shortcut Keys", shortcuts_message)
+        # print("Show shortcut keys.")
 
 
 if __name__ == "__main__":
