@@ -296,7 +296,19 @@ class Tkinter_GUI(Observer):
         self.path.set("")
         self.event.set("")
         self.time.set("")
-
+    
+    def download_usage(self):
+        file = filedialog.asksaveasfile(defaultextension='.txt', filetypes=[("Text Files", "*.txt"),
+                                                                            ("Python Files", "*.py"),
+                                                                            ("All Files", "*.*")])
+        if file:
+            try:
+                file_text = str(self.usage_message)
+                file.write(file_text)
+                file.close()
+                print(f"Usage message has been saved to {file}")
+            except Exception as e:
+                print("Error saving usage:", e)
 
     def query_window(self):
         print("Database query operation triggered.")
@@ -354,19 +366,25 @@ class Tkinter_GUI(Observer):
 
 
     # Methods for Help Menu (Stubs)
-    def show_about(self):
-        about_message = """This File System Watcher application is version 1.0.
-            Authors: Weilan Liang
-                     Dereje Teshager
-                     Aden Abdulahi
-            This application allows users to monitor targeted file systems, like directory
-            folder, or single file in real-time. You can monitor and watch directories
-            added, new files created, deleted files, or modified files.
-        """
-        print(about_message)
+       def show_about(self):
+
+        top = CTkToplevel()
+        top.title("About")
+        about_message ="""This File System Watcher application is version 1.0.
+                   Authors: Weilan Liang
+                            Dereje Teshager
+                            Aden Abdulahi
+                   This application allows users to monitor targeted file systems, like directory
+                   folder, or single file in real-time. You can monitor and watch directories
+                   added, new files created, deleted files, or modified files.
+               """
+        my_label = CTkLabel(top, text=about_message)
+        my_label.pack()
 
     def show_usage(self):
-        usage_message = """
+        self.new = CTkToplevel()
+        self.new.title("Usage")
+        self.usage_message = """
         Usage Guide: To use this File System Watcher application, your desktop computer, 
                 laptop, or other device should operates latest versions of windows, mac, or Linux
                 etc. The File System Watcher application, was built using python 3.12, thus your device should be 
@@ -412,22 +430,28 @@ class Tkinter_GUI(Observer):
             7. File Watcher System Events will appear the last box of the window and will have a File Name, Path, 
                 Event Type, and Time Stamp in real-time occorance.
         """
-        print(usage_message)
+        use = CTkLabel(self.new, text=self.usage_message)
+        use.pack()
+        save = CTkButton(self.new, text="Download", command=self.download_usage)
+        save.pack()
+        
 
     def show_shortcuts(self):
         # Shortcut keys message popup
+        short = CTkToplevel()
+        short.title("Shortcuts")
         shortcuts_message = """
-           Keyboard Shortcuts:
+                   Keyboard Shortcuts:
 
-           - Ctrl + S: Start Watching
-           - Ctrl + Q: Stop Watching
-           - Ctrl + R: Reset
-           - Ctrl + B: Browse Directory
+                   - Ctrl + S: Start Watching
+                   - Ctrl + Q: Stop Watching
+                   - Ctrl + R: Reset
+                   - Ctrl + B: Browse Directory
 
-           These shortcuts help you navigate and use the app quickly.
-           """
-        messagebox.showinfo("Shortcut Keys", shortcuts_message)
-        # print("Show shortcut keys.")
+                   These shortcuts help you navigate and use the app quickly.
+                   """
+        keys = CTkLabel(short, text=shortcuts_message)
+        keys.pack()
 
 
 if __name__ == "__main__":
