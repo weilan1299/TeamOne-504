@@ -235,20 +235,39 @@ class Tkinter_GUI(Observer):
     # Methods for File System Watching
     def start_monitoring(self):
         """Starts the file system monitoring using watchdog."""
-
         path = self.entry_var.get()
+
         if not path:
+            messagebox.showinfo("Error", "Please enter a valid path")
             print("Please enter a valid path")
             return
+
+        #Make sure the thread works   !!!!!!!!!!
         self.monitor.monitoredFiles = path
-        self.monitor.start()
+        self.watcher_thread = threading.Thread(target=self.monitor.start, daemon=True)
+        self.watcher_thread.start()
+
+        #Change the button text and status to indicate that monitoring is active
+        self.start_watch_btn.configure(text="Monitoring...", state=tk.DISABLED)
+        if hasattr(self, "start_btn"):
+            self.start_btn.configure(state=tk.DISABLED)
 
         # watch directory check or not, to decided to watch subdirectory
 
     def stop_monitoring(self):
         """Stops the file system monitoring if it is running."""
 
-        self.monitor.stop()
+         path = self.entry_var.get()
+        if not path:
+            messagebox.showinfo("Error", "Please enter a valid path")
+            return
+        if messagebox.askyesno("Stop Monitoring", "Are you sure you want to Stop Monitoring?"):
+            self.monitor.stop()
+            self.start_watch_btn.configure(text="Start Monitoring", state=tk.NORMAL)
+            if hasattr(self, "start_btn"):
+                self.start_btn.configure(state=tk.NORMAL)
+        else:
+            self.start_watch_btn.configure(text="Monitoring...", state=tk.DISABLED)
 
     def reset(self):
         """Resets the directory and database entry fields."""
