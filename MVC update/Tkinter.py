@@ -1,6 +1,9 @@
+import csv
+import smtplib
 import sqlite3
 import time
 import tkinter as tk
+from email.message import EmailMessage
 from tkinter import Menu, messagebox
 import customtkinter
 from customtkinter import *
@@ -55,7 +58,9 @@ class Tkinter_GUI(View):
         self.create_main_frames()
         self.create_widgets()
         self.table = None
+        self.saved = False
 
+        root.protocol("WM_DELETE_WINDOW", self.exit)
     def create_menubar(self):
 
         # Creates the application menu bar.
@@ -114,9 +119,11 @@ class Tkinter_GUI(View):
         self.frame3.grid(row=2, column=0,padx=20, pady=20, sticky="w")
 
         # Frame 4: Scrollable display for events (log output)
-        self.frame4 = CTkScrollableFrame(self.main_frame, orientation="vertical", border_color="#FFCC70",
-                                         border_width=3)
+        self.frame4 = CTkFrame(self.main_frame)
         self.frame4.grid(row=3, column=0, padx=20, pady=20, sticky="news")
+
+        self.scrollbar = CTkScrollbar(self.frame4)
+        self.scrollbar.pack(side="right", fill="y")
 
     def create_widgets(self):
         """Creates and places all widgets in the appropriate frames."""
@@ -182,50 +189,32 @@ class Tkinter_GUI(View):
         self.db_browse_btn = CTkButton(self.frame3, text="Browse", command=self.database_path)
         self.db_browse_btn.grid(row=2, column=2, padx=10, pady=5)
 
-        # self.db_ext_label = CTkLabel(self.frame3, text="Extension:")
-        # self.db_ext_label.grid(row=0, column=9, sticky="w", padx=10, pady=5)
-
-        # self.db_ext_combo = CTkComboBox(self.frame3, values=["", ".txt", ".py", ".exe"])
-        # self.db_ext_combo.grid(row=1, column=9, padx=10, pady=5)
-        #
-        # self.event_type_label = CTkLabel(self.frame3, text="Event Type:")
-        # self.event_type_label.grid(row=0, column=10, sticky="w", padx=10, pady=5)
-        #
-        # self.event_type_combo = CTkComboBox(self.frame3, values=["", "Modified", "Created", "Deleted"])
-        # self.event_type_combo.grid(row=1, column=10, sticky="w", padx=10, pady=5)
-
         self.db_m = CTkLabel(self.frame3, text="Database manage:")
         self.db_m.grid(row=0, column=10, sticky="w", padx=40, pady=5)
 
         self.email = CTkButton(self.frame3, text = "Email Database", command=self.email_data)
         self.email.grid(row=1, column=10, padx=40, pady=5)
 
-        self.query_btn = CTkButton(self.frame3, text="Query Database", command=self.db_query)
+        self.query_btn = CTkButton(self.frame3, text="Query Database", command=self.query_window)
         self.query_btn.grid(row=2, column=10, padx=40, pady=5)
 
-        # --- Frame 4 Widgets: Scrollable Event Display ---
-        self.events_header = CTkLabel(self.frame4, text="File System Watcher Events:")
-        self.events_header.grid(row=0, column=0, padx=10, pady=(10, 0), sticky="w")
 
-        self.file_name = CTkLabel(self.frame4, text="File Name")
-        self.file_name.grid(row=1, column=0, columnspan=5, sticky="w", padx=5, pady=5)
-        self.file_names = CTkLabel(self.frame4, textvariable=self.filename)
-        self.file_names.grid(row=2, column=0, columnspan=5, sticky="w", padx=5, pady=5)
+        self.treeview = ttk.Treeview(self.frame4, yscrollcommand=self.scrollbar.set, selectmode="extended")
+        self.treeview.pack(fill="both", expand=True)
+        self.scrollbar.configure(command=self.treeview.yview)
 
-        self.path_event = CTkLabel(self.frame4, text="Path")
-        self.path_event.grid(row=1, column=6, columnspan=17, sticky="w", padx=5, pady=5)
-        self.paths = CTkLabel(self.frame4, textvariable=self.path)
-        self.paths.grid(row=2, column=6, columnspan=17, sticky="w", padx=5, pady=5)
+        self.treeview['columns'] = ("File Name", "Path", "Event Type", "Time Stamp")
+        self.treeview.column('#0', width=0, stretch=NO)
+        self.treeview.column("File Name", anchor=W, width=120)
+        self.treeview.column("Path", anchor=CENTER, width=200)
+        self.treeview.column("Event Type", anchor=W, width=120)
+        self.treeview.column("Time Stamp", anchor=CENTER, width=120)
 
-        self.event_frame4 = CTkLabel(self.frame4, text="Event Type")
-        self.event_frame4.grid(row=1, column=18, columnspan=22, sticky="w", padx=40, pady=5)
-        self.event_type = CTkLabel(self.frame4, textvariable=self.event)
-        self.event_type.grid(row=2, column=18, columnspan=22, sticky="w", padx=40, pady=5)
-        #
-        self.time_stamp = CTkLabel(self.frame4, text="Time Stamp")
-        self.time_stamp.grid(row=1, column=23, columnspan=25, sticky="e", padx=120, pady=5)
-        self.timestamps = CTkLabel(self.frame4, textvariable=self.time)
-        self.timestamps.grid(row=2, column=23, columnspan=25, sticky="e", padx=120, pady=5)
+        # creating the heading
+        self.treeview.heading("File Name", text="File Name", anchor=W)
+        self.treeview.heading("Path", text="Path", anchor=CENTER)
+        self.treeview.heading("Event Type", text="Event Type", anchor=W)
+        self.treeview.heading("Time Stamp", text="Time Stamp", anchor=CENTER)
 
     def show_data(self, rows):
         print(rows)
@@ -237,7 +226,8 @@ class Tkinter_GUI(View):
 
         # Loop through each row and append the values to the respective string variables
         for row in rows:
-            filename, path, event_type, timestamp = row
+            self.row = row
+            filename, path, event_type, timestamp = self.row
 
             # Append each row's data to the accumulated string for each field
             filename_data += filename + "\n"
@@ -250,6 +240,14 @@ class Tkinter_GUI(View):
         self.path.set(path_data)
         self.event.set(event_data)
         self.time.set(time_data)
+
+        # Adding some style
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure('Treeview', background='white')
+
+        # Adding rows to the treeview
+        self.treeview.insert("", "end", values=self.row)
         # Reset the update flag
 
     # Methods for File System Watching
@@ -258,7 +256,7 @@ class Tkinter_GUI(View):
 
         path = self.entry_var.get()
         if not path:
-            print("Please enter a valid path")
+            messagebox.showinfo("Error", "Please enter a valid path")
             return
         self.controller.monitoredFile = path
         if self.ext_combo.get() != "":
@@ -325,6 +323,7 @@ class Tkinter_GUI(View):
         if not path:
             print("Please enter a valid path")
         self.model.write_database(path, file_name)
+        self.saved = True
 
     def db_clear(self):
         print("Database clear operation triggered.")
@@ -348,14 +347,57 @@ class Tkinter_GUI(View):
                 print("Error saving usage:", e)
 
     def email_data(self):
-        pass
+
+        self.email_window = CTkFrame(self.root)
+        self.new_window = tk.Toplevel(self.email_window)
+        self.new_window.title("Send Email")
+        self.new_window.geometry("400x300")
+        self.email_entry = CTkEntry(self.new_window, width=200, placeholder_text='Please enter your email address')
+        self.send_button = CTkButton(self.new_window, text="Send", command=self.send_email)
+        self.exit_button = CTkButton(self.new_window, text="Exit", command=self.new_window.destroy)
+
+        self.email_window.pack(fill=tk.BOTH, expand=True)
+        self.email_entry.grid(row=0, column=0, padx=5, pady=50, columnspan=4, sticky="news")
+        self.send_button.grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        self.exit_button.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+
+        # To make the root window disabled while the new_window is still open
+        self.new_window.transient(self.root)
+        self.new_window.grab_set()
+        self.email_window.wait_window()
+
+    def send_email(self):
+        email = self.email_entry.get()
+        EMAIL_ADDRESS = 'wad.filewatch@gmail.com'
+        EMAIL_PASS = 'WAD12345678@'
+        msg = EmailMessage()
+        msg["Subject"] = "Events from Filewatcher..."
+        msg["From"] = EMAIL_ADDRESS
+        msg["To"] = email
+        msg.set_content("Events from database...")
+
+        x = DatabaseManager()
+        csv_file = x.export_db_to_csv()
+        with open(csv_file, "rb") as f:
+            file_data = f.read()
+            file_name = f.name
+        msg.add_attachment(file_data, maintype="application", subtype="octet", filename=file_name)
+
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                smtp.login(EMAIL_ADDRESS, EMAIL_PASS)
+                smtp.send_message(msg)
+                messagebox.showinfo("Send Email", "Email has been sent.")
+        except Exception as e:
+            messagebox.showinfo('Error', "Could not send email. ")
+            print("Error sending email:", e)
 
     def query_window(self):
         print("Database query operation triggered.")
         window = CTkFrame(self.root)
         newWindow = tk.Toplevel(window)
         newWindow.title("Database query")
-        newWindow.geometry("800x600")
+        newWindow.geometry("800x650")
         table_frame = CTkFrame(newWindow)
         table_frame.grid(row=0, column=0, padx=100, pady=20)
         self.table = ttk.Treeview(table_frame, columns=('File Name', 'Path', 'Event Type', 'Time Stamp'),
@@ -368,32 +410,62 @@ class Tkinter_GUI(View):
         self.table.column("File Name", width=200)
         self.table.column("Path", width=180)
         self.table.column("Event Type", width=100)
-        self.table.column("Time Stamp", width=120)
-        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.table.yview)
+        self.table.column("Time Stamp", width=140)
+        ttk.Scrollbar(table_frame, orient="vertical", command=self.table.yview)
+
 
         query_frame = CTkFrame(newWindow)
         query_frame.grid(row=1, column=0, padx=100, pady=20)
         ext_label = CTkLabel(query_frame, text="Extension:")
-        ext_label.grid(row=1, column=0, sticky="w", padx=30, pady=5)
+        ext_label.grid(row=1, column=0, sticky="w", padx=10, pady=5)
 
         self.q_ext_combo = CTkComboBox(query_frame, values=["", ".txt", ".py", ".exe"])
-        self.q_ext_combo.grid(row=2, column=0, sticky="w", padx=20, pady=10)
+        self.q_ext_combo.grid(row=2, column=0, sticky="w", padx=10, pady=10)
 
         event_type = CTkLabel(query_frame, text="Event Type:")
-        event_type.grid(row=1, column=1, sticky="w", padx=20, pady=5)
+        event_type.grid(row=1, column=1, sticky="w", padx=10, pady=5)
 
         self.q_event_type_combo = CTkComboBox(query_frame, values=["", "modified", "created", "deleted"])
-        self.q_event_type_combo.grid(row=2, column=1, sticky="w", padx=20, pady=10)
+        self.q_event_type_combo.grid(row=2, column=1, sticky="w", padx=10, pady=10)
+
+        time_range = CTkLabel(query_frame, text="Time Range: hh:mm:ss; hh:0-24, mm:0-60, ss:0-60")
+        time_range.grid(row=3, column=0, columnspan = 2,sticky="w", padx=15, pady=0)
+
+        self.time_entry1 = CTkEntry(query_frame, placeholder_text="00:00:00")
+        self.time_entry1.grid(row=4, column=0, sticky="w", padx=10, pady=10)
+
+        self.time_entry2 = CTkEntry(query_frame, placeholder_text="00:00:00")
+        self.time_entry2.grid(row=4, column=1, sticky="w", padx=10, pady=10)
+
 
         query = CTkButton(query_frame, text="Query", command=self.db_query)
         query.grid(row=2, column=2, sticky="e", padx=30, pady=10)
+
+    def validate_time(self, time_str):
+        """Validates if time entered is valid"""
+        try:
+            hours, minutes, seconds = map(int, time_str.split(":"))
+            if not (0 <= hours <= 24) and (0 <= minutes <= 60) and (0 <= seconds <= 60):
+                return False
+            return True
+        except ValueError:
+            return False
+
 
     def db_query(self):
         for item in self.table.get_children():
             self.table.delete(item)
         extension = self.q_ext_combo.get()
         event_type = self.q_event_type_combo.get()
-        self.q_data = self.model.query_data(extension, event_type)
+        t1 = self.time_entry1.get()
+        t2 = self.time_entry2.get()
+
+        if not self.validate_time(t1):
+            messagebox.showerror("Invalid Time Input", "Please re-enter valid beginning time")
+        if not self.validate_time(t2):
+            messagebox.showerror("Invalid Time Input", "Please re-enter valid end time")
+
+        self.q_data = self.model.query_data(extension, event_type, t1, t2)
 
         # Concatenate the previous data with new values and update
         for row in self.q_data:
@@ -486,6 +558,33 @@ class Tkinter_GUI(View):
                """
         my_label = CTkLabel(top, text=about_message)
         my_label.pack()
+
+    def exit(self):
+        if self.saved is False:
+            close = messagebox.askyesnocancel("Exit", "Do you want to save current data?")
+            if close:
+                file_path = filedialog.asksaveasfilename(defaultextension=".csv",
+                                                         filetypes=[("CSV files", "*.csv"),
+                                                                    ("All files", "*.*")])
+
+                if file_path:
+                    with open(file_path, 'w', newline='') as csvfile:
+                        csv_writer = csv.writer(csvfile)
+                        csv_writer.writerows('fe')
+                    print(f"CSV file saved to: {file_path}")
+                self.db_clear()
+                root.destroy()
+
+            if close is False:
+                root.destroy()
+        if self.saved is True:
+            close = messagebox.askyesno("Exit", "Are you sure?")
+            if close:
+                self.db_clear()
+                root.destroy()
+
+
+
 if __name__ == "__main__":
     root = CTk()
     view = Tkinter_GUI(root)  # Now create the Tkinter_GUI view

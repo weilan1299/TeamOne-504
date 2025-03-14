@@ -2,6 +2,9 @@ import sqlite3
 
 import os
 
+import pandas as pd
+from nbclient.client import timestamp
+
 from mvc import Model
 
 
@@ -52,12 +55,12 @@ class DatabaseManager(Model):
 
 
 
-    def get_one(self):
+    def get_all(self):
         self.connect()
-        self.cursor.execute("SELECT * FROM filewatch ORDER BY timestamp DESC LIMIT 1")
-        return self.cursor.fetchone()
+        self.cursor.execute("SELECT * FROM filewatch ORDER BY timestamp DESC")
+        return self.cursor.fetchall()
 
-    def query_data(self, extension, event_type):
+    def query_data(self, extension, event_type, t1, t2):
         self.connect()
 
         # file_q = ['extension', 'event_type']
@@ -66,8 +69,13 @@ class DatabaseManager(Model):
         ext = extension
         et = event_type
 
-        query = "SELECT * FROM filewatch WHERE filename like ? And event_type like ?"
-        data = ('%' + ext + '%', '%' + et + '%')
+        query = """SELECT * FROM filewatch 
+                    WHERE filename like ? 
+                    And event_type like ? 
+                    And STRFTIME('%T', timestamp) > ?
+                    And STRFTIME('%T', timestamp) < ?"""
+
+        data = ('%' + ext + '%', '%' + et + '%', t1, t2)
         self.cursor.execute(query, data)
 
         return self.cursor.fetchall()
@@ -90,6 +98,18 @@ class DatabaseManager(Model):
         self.cursor.execute("DROP TABLE IF EXISTS filewatch")
         self.conn.commit()
 
+    def export_db_to_csv(self):
+        self.connect()
+
+        self.sqlquery = "SELECT * FROM filewatch"
+
+
+        df = pd.read_sql_query(self.sqlquery, self.conn)
+        self.filename = 'filewatch.csv'
+        df.to_csv(self.filename, index=False)
+        return self.filename
+
     def close(self):
         self.conn.close()
         self.cursor.close()
+
