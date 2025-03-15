@@ -3,7 +3,7 @@ import sqlite3
 import os
 
 import pandas as pd
-from nbclient.client import timestamp
+
 
 from mvc import Model
 
@@ -52,33 +52,38 @@ class DatabaseManager(Model):
         self.conn.commit()
         self.rows.append(row)
 
-
-
-
     def get_all(self):
         self.connect()
         self.cursor.execute("SELECT * FROM filewatch ORDER BY timestamp DESC")
         return self.cursor.fetchall()
 
-    def query_data(self, extension, event_type, t1, t2):
+    def query_data(self, extension, event_type, date, t1, t2):
         self.connect()
+        query = "SELECT * FROM filewatch WHERE 1=1"
+        arg = []
 
-        # file_q = ['extension', 'event_type']
-        # for file in file_q:
-        #     extension = file
-        ext = extension
-        et = event_type
+        # Add filters based on the parameters
+        if extension:  # If an extension is provided, filter by filename
+            query += " AND filename LIKE ?"
+            arg.append('%' + extension + '%')
 
-        query = """SELECT * FROM filewatch 
-                    WHERE filename like ? 
-                    And event_type like ? 
-                    And STRFTIME('%T', timestamp) > ?
-                    And STRFTIME('%T', timestamp) < ?"""
+        if event_type:  # If an event type is provided, filter by event_type
+            query += " AND event_type LIKE ?"
+            arg.append('%' + event_type + '%')
 
-        data = ('%' + ext + '%', '%' + et + '%', t1, t2)
-        self.cursor.execute(query, data)
+        if date:  # If a date is provided, filter by date
+            query += " AND STRFTIME('%F', timestamp) = ?"
+            arg.append(date)
+
+        if t1 and t2:  # If both time range values are provided, filter by time
+            query += " AND STRFTIME('%T', timestamp) > ? AND STRFTIME('%T', timestamp) < ?"
+            arg.append(t1)
+            arg.append(t2)
+
+        self.cursor.execute(query, tuple(arg))
 
         return self.cursor.fetchall()
+
 
     def write_database(self, export_file, file_name):
         self.connect()
@@ -112,4 +117,3 @@ class DatabaseManager(Model):
     def close(self):
         self.conn.close()
         self.cursor.close()
-

@@ -59,12 +59,11 @@ class FileWatch(Controller):
     def __init__(self, model, view):
         super().__init__(model, view)
         self.__extension = []
-        self.is_running = None
         self.__monitoredFile = []
         self.model = model
         self.view = view
         self.handler = FileHandler(self, model, self.__extension)
-        self.observer = Observer()
+        self.observer = None
 
     @property
     def monitoredFile(self):
@@ -86,15 +85,17 @@ class FileWatch(Controller):
         if not self.__monitoredFile:
             print('No file to watch')
             return
-        if self.is_running:
-            print("Stopping the current observer...")
-            self.stop()
 
-            # Create a new observer instance
-
-        self.observer.schedule(self.handler, self.monitoredFile, recursive=False)
-        self.observer.start()
-
+        if not self.observer or not self.observer.is_alive():
+            self.observer = Observer()
+        # Create a new observer instance
+        get_check = self.view.check()
+        if get_check == 1:
+            self.observer.schedule(self.handler, self.monitoredFile, recursive=True)
+            self.observer.start()
+        else:
+            self.observer.schedule(self.handler, self.monitoredFile, recursive=False)
+            self.observer.start()
         print("Monitoring started.")
 
         print('Starting file watch... Press Stop to stop')
@@ -103,10 +104,10 @@ class FileWatch(Controller):
 
     def stop(self):
         print('Stopping file watch...')
-        if self.is_running:
+        if self.observer.is_alive():
             self.observer.stop()
             self.observer.join()  # Wait for the observer to finish its work
-            self.is_running = False
+
             print("Monitoring stopped.")
         else:
             print("Monitoring is not running.")

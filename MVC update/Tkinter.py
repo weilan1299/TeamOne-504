@@ -1,8 +1,10 @@
 import csv
+import datetime
 import smtplib
 import sqlite3
 import time
 import tkinter as tk
+import traceback
 from email.message import EmailMessage
 from tkinter import Menu, messagebox
 import customtkinter
@@ -12,6 +14,7 @@ from databasemanager import DatabaseManager
 from tkinter import StringVar
 from mvc import View
 from filewatch import FileWatch
+import os
 
 
 # Set appearance mode and default theme
@@ -27,6 +30,7 @@ class Tkinter_GUI(View):
 
 
 
+        self.q_email_entry = None
         self.root = root
         self.root.title("File System Watcher")
         self.database = "filewatch.db"
@@ -41,6 +45,7 @@ class Tkinter_GUI(View):
         self.q_path = StringVar()
         self.q_event = StringVar()
         self.q_time = StringVar()
+        self.check_var = IntVar()
 
         self.entry_var = StringVar()
         self.database_entry = StringVar()
@@ -166,7 +171,8 @@ class Tkinter_GUI(View):
         self.ext_combo = CTkComboBox(self.frame2, values=["", ".txt", ".py", ".exe"])
         self.ext_combo.grid(row=1, column=9, padx=10, pady=5)
 
-        self.watch_checkbox = CTkCheckBox(self.frame2, text="Watch directories?")
+        self.watch_checkbox = CTkCheckBox(self.frame2, text="Watch directories?", variable=self.check_var,
+                                                      command=self.check)
         self.watch_checkbox.grid(row=2, column=9, padx=10, pady=5)
 
         self.info_label = CTkLabel(self.frame2, text="Leave blank for All files")
@@ -215,6 +221,9 @@ class Tkinter_GUI(View):
         self.treeview.heading("Path", text="Path", anchor=CENTER)
         self.treeview.heading("Event Type", text="Event Type", anchor=W)
         self.treeview.heading("Time Stamp", text="Time Stamp", anchor=CENTER)
+
+    def check(self):
+        return self.check_var.get()
 
     def show_data(self, rows):
         print(rows)
@@ -368,16 +377,15 @@ class Tkinter_GUI(View):
 
     def send_email(self):
         email = self.email_entry.get()
-        EMAIL_ADDRESS = 'wad.filewatch@gmail.com'
-        EMAIL_PASS = 'WAD12345678@'
+        EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+        EMAIL_PASS = os.getenv("EMAIL_PASS")
         msg = EmailMessage()
         msg["Subject"] = "Events from Filewatcher..."
         msg["From"] = EMAIL_ADDRESS
         msg["To"] = email
         msg.set_content("Events from database...")
 
-        x = DatabaseManager()
-        csv_file = x.export_db_to_csv()
+        csv_file = self.model.export_db_to_csv()
         with open(csv_file, "rb") as f:
             file_data = f.read()
             file_name = f.name
@@ -428,28 +436,75 @@ class Tkinter_GUI(View):
         self.q_event_type_combo = CTkComboBox(query_frame, values=["", "modified", "created", "deleted"])
         self.q_event_type_combo.grid(row=2, column=1, sticky="w", padx=10, pady=10)
 
+        date = CTkLabel(query_frame, text="Date: YYYY-MM-DD")
+        date.grid(row=3, column=0, sticky="w", padx=10, pady=5)
+
+        self.date = CTkEntry(query_frame, placeholder_text="YYYY-MM-DD")
+        self.date.grid(row=4, column=0, sticky="w", padx=10, pady=5)
+
         time_range = CTkLabel(query_frame, text="Time Range: hh:mm:ss; hh:0-24, mm:0-60, ss:0-60")
-        time_range.grid(row=3, column=0, columnspan = 2,sticky="w", padx=15, pady=0)
+        time_range.grid(row=3, column=1, columnspan = 2,sticky="w", padx=15, pady=0)
 
         self.time_entry1 = CTkEntry(query_frame, placeholder_text="00:00:00")
-        self.time_entry1.grid(row=4, column=0, sticky="w", padx=10, pady=10)
+        self.time_entry1.grid(row=4, column=1, sticky="w", padx=10, pady=10)
 
         self.time_entry2 = CTkEntry(query_frame, placeholder_text="00:00:00")
-        self.time_entry2.grid(row=4, column=1, sticky="w", padx=10, pady=10)
+        self.time_entry2.grid(row=4, column=2, sticky="w", padx=10, pady=10)
 
-
+        email = CTkButton(query_frame, text="Email", command=self.q_email_data)
+        email.grid(row=1, column=2, sticky="e", padx=30, pady=10)
         query = CTkButton(query_frame, text="Query", command=self.db_query)
         query.grid(row=2, column=2, sticky="e", padx=30, pady=10)
+    def q_email_data(self):
 
-    def validate_time(self, time_str):
-        """Validates if time entered is valid"""
+        q_email_window = CTkFrame(self.root)
+        new_window = tk.Toplevel(q_email_window)
+        new_window.title("Send Email")
+        new_window.geometry("400x300")
+        self.q_email_entry = CTkEntry(new_window, width=200, placeholder_text='Please enter your email address')
+        send_button = CTkButton(new_window, text="Send", command=self.q_send_email)
+        exit_button = CTkButton(new_window, text="Exit", command=new_window.destroy)
+
+        q_email_window.pack(fill=tk.BOTH, expand=True)
+        self.q_email_entry.grid(row=0, column=0, padx=5, pady=50, columnspan=4, sticky="news")
+        send_button.grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        exit_button.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+
+        # To make the root window disabled while the new_window is still open
+        new_window.transient(self.root)
+        new_window.grab_set()
+        q_email_window.wait_window()
+    def q_send_email(self):
+        email = self.q_email_entry.get()
+        EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+        EMAIL_PASS = os.getenv("EMAIL_PASS")
+        msg = EmailMessage()
+        msg["Subject"] = "Events from Filewatcher..."
+        msg["From"] = EMAIL_ADDRESS
+        msg["To"] = email
+        msg.set_content("Events from database...")
+
+
+        with open("query.csv", "w") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["filename", "path", "event_type", "timestamp"])
+            writer.writerows(self.q_data)
+
+        file_name = "query.csv"
+        with open(file_name, "rb") as file:
+            file_data = file.read()
+
+        # Add the attachment to the email
+        msg.add_attachment(file_data, maintype="application", subtype="octet-stream", filename=file_name)
+
         try:
-            hours, minutes, seconds = map(int, time_str.split(":"))
-            if not (0 <= hours <= 24) and (0 <= minutes <= 60) and (0 <= seconds <= 60):
-                return False
-            return True
-        except ValueError:
-            return False
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                smtp.login(EMAIL_ADDRESS, EMAIL_PASS)
+                smtp.send_message(msg)
+                messagebox.showinfo("Send Email", "Email has been sent.")
+        except Exception as e:
+            messagebox.showinfo('Error', "Could not send email. ")
+            print("Error sending email:", e)
 
 
     def db_query(self):
@@ -457,22 +512,26 @@ class Tkinter_GUI(View):
             self.table.delete(item)
         extension = self.q_ext_combo.get()
         event_type = self.q_event_type_combo.get()
+        date = self.date.get()
+
         t1 = self.time_entry1.get()
         t2 = self.time_entry2.get()
 
-        if not self.validate_time(t1):
-            messagebox.showerror("Invalid Time Input", "Please re-enter valid beginning time")
-        if not self.validate_time(t2):
-            messagebox.showerror("Invalid Time Input", "Please re-enter valid end time")
+        try:
+            self.q_data = self.model.query_data(extension, event_type, date, t1, t2)
 
-        self.q_data = self.model.query_data(extension, event_type, t1, t2)
+            # Check if any data was returned
+            if not self.q_data:
+                messagebox.showinfo('No Results', "No data found matching the given criteria.")
+        except Exception as e:
+            # Handle any errors in the query execution
+            messagebox.showinfo('Error', f"Could not query the database. Error: {str(e)}")
+            print(f"Error executing query: {e}")
 
-        # Concatenate the previous data with new values and update
         for row in self.q_data:
             filename, path, event_type, timestamp = row
             self.table.insert("", "end", values=(filename, path, event_type, timestamp))
 
-        # Methods for Help Menu (Stubs)
 
     def show_usage(self):
         self.new = CTkToplevel()
@@ -482,46 +541,64 @@ class Tkinter_GUI(View):
                 laptop, or other device should operates latest versions of windows, mac, or Linux
                 etc. The File System Watcher application, was built using python 3.12, thus your device should be 
                 able to operate this python version.
-
+                
         A) Top Left Corner: The window has four small buttons, named as "File", "Edit", 
             "Database", and "Help".
             1. File: Clicking this button, will allow user/you to see small dropdown button, consisting 
                 "Start Watching", "Stop Watching", "Rest", and "Exit"
-            2. Edit: Clicking this button will allow user/you to browse and select a directory, or target file that 
-                you want or plan to be watched accordingly.
-            3. Database: Clicking this button will allow user/you to see small dropdown button, consisting "Write", 
-                "Clear database", "Delete database", "Change database", and "Query".
-            4. Help: Clicking this button will allow the user/you to access small dropdown button, consisting of 
-                the "About", "Usage Help", and "Shortcut Keys".
-        B) Where to watch: To determine which directory, or file to watch do your selection of targets accordingly:
-
-            1. To start watching a directory/ies, enter the directory path either clicking the "Edit" button at the top
-                left corner or the "Browse" button under the directory to watch, then proceed browsing and selecting 
-                your target directory, or file. Specify your target using the "Extension" button by choosing
-                either a file to be ".txt", ".py", or ".exe". Or leave the "Extension" button blank if you prefer to
-                watch and monitor all directories and click the "Watch directories" box found on the right of "Browse"
+            2. Edit: Clicking this button will allow user/you to browse and select a directory, 
+                or target file that you want or plan to be watched accordingly.
+            3. Database: Clicking this button will allow user/you to see small dropdown button,
+                consisting "Write","Clear database", and "Query".
+            4. Help: Clicking this button will allow the user/you to access small dropdown 
+                button, consisting of the "About", "Usage Help", and "Shortcut Keys".
+        B) Where to watch: First a user/you should determine which directory, or
+            file to watch do your selection of targets accordingly:
+            
+            1. To start watching a directory/ies, enter the directory path either clicking the "Edit"
+                button at the top left corner or the "Browse" button under the directory to watch,
+                then proceed browsing and selecting your target directory, or file. Specify your
+                target using the "Extension" button by choosing either a file to be ".txt", ".py",
+                or ".exe". Or leave the "Extension" button blank if you prefer to watch and monitor
+                all directories and click the "Watch directories" box found on the right of "Browse"
                 button and bellow the "Extension" dropdown button.
-            2. Then click "Start Watching" or "Start" buttons on the display or by dropping down the "File" button on
-                the top-left corner, from this click the "Start Watching" button.
-            3. You can stop monitoring by clicking "Stop Watching" or "Stop" button, Or click "File" button on the
-                top-left corner, then from this click "Stop Watching" button.
-                the "Stop Watching" button.
-            4. Change Target Directory: To change the directory the user/you want to watch, click the "Reset" button.
-                This will allow the user to clear any directory/ies he/she/it selected and choose another directory.
+                
+            2. Then click "Start Watching" or "Start" buttons on the display or by dropping down
+                the "File" button on the top-left corner, from this click the "Start Watching" button.
+                
+            3. You can stop monitoring by clicking "Stop Watching" or "Stop" button, Or click "File"
+                button on the top-left corner, then from this click "Stop Watching" button.
+            4. Reset: To change the directory the user/you want to watch, 
+                click the "Reset" button. This will allow the user to clear any directory/ies 
+                he/she/it selected and choose another directory.
+                
         C) Database Management: The user have the following options for data management.
-            1. Click the "Browse" button under the Database path, then select where to store the output/result of 
-                the files or directory/ies the File Watcher System watched.
-            2. Click the "Write" button either bellow the Database path or from the "Database" on the top-left corner.
-                This will allow the user to write the data to a specified file or directory/ies.
-            3. Click the "Clear DB" or "Clear database" buttons to clear the output/result of the watched files before 
-                the result is stored to an specified file or directory/ies.
-            4. Click the "Delete database" under the "Database" button to delete stored output/result data.
-            5. Click the "Change database" under the "Database" button to modify stored output/result data.
-            6. Click the "Query" button under the "Database" button or the "Query" button to query stored 
-                output/result of any database. A user can specify the type of query by selecting the drop-down options 
-                under the Extension indicator and drop-down options under the Event Type and above the "Query" button.
-            7. File Watcher System Events will appear the last box of the window and will have a File Name, Path, 
-                Event Type, and Time Stamp in real-time occorance.
+            1. Click the "Browse" button under the Database path, then select where to store
+                the output/result of the files or directory/ies the File Watcher System watched.
+                
+            2. Write: Click the "Write" button either bellow the Database path or from the "Database" 
+                on the top-left corner. This will allow the user to write the data to a specified
+                file or directory/ies.
+                
+            3. Clear DB/Clear database: Click the "Clear DB" or "Clear database" buttons to clear the output/result of 
+                the watched files before the result is stored to an specified file or directory/ies. or click 
+                Database button, then a dropdown will pop-up then, click Clear database, this will also clear the 
+                data watched.
+                
+                
+            4. Click the "Change database" under the "Database" button to modify stored 
+                output/result data.
+                
+            5. Query: Click the "Query" button under the "Database" button or the "Query" button to 
+                query stored output/result of any database. A user can specify the type of 
+                query by selecting the drop-down options under the Extension indicator and
+                drop-down options under the Event Type and above the "Query" button.
+                
+            6. File Watcher System Events will appear the last box of the window and will 
+                have a File Name, Path, Event Type, and Time Stamp in real-time occurrence.
+                
+            7. Email Database: To send the data watched in to you email, click Email Database
+                then follow the instructions provided like inserting properly your email.
         """
         use = CTkLabel(self.new, text=self.usage_message)
         use.pack()
